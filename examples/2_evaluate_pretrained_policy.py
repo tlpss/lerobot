@@ -21,9 +21,9 @@ output_directory.mkdir(parents=True, exist_ok=True)
 device = torch.device("cuda")
 
 # Download the diffusion policy for pusht environment
-pretrained_policy_path = Path(snapshot_download("lerobot/diffusion_pusht"))
+# pretrained_policy_path = Path(snapshot_download("lerobot/diffusion_pusht"))
 # OR uncomment the following to evaluate a policy from the local outputs/train folder.
-# pretrained_policy_path = Path("outputs/train/example_pusht_diffusion")
+pretrained_policy_path = Path("outputs/train/example_pusht_diffusion")
 
 policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
 policy.eval()

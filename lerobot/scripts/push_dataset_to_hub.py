@@ -88,6 +88,9 @@ def get_from_raw_to_lerobot_format_fn(raw_format):
         from lerobot.common.datasets.push_dataset_to_hub.aloha_dora_format import from_raw_to_lerobot_format
     elif raw_format == "xarm_pkl":
         from lerobot.common.datasets.push_dataset_to_hub.xarm_pkl_format import from_raw_to_lerobot_format
+
+    elif raw_format == "gello_pkl":
+        from lerobot.common.datasets.push_dataset_to_hub.gello_pkl_format import from_raw_to_lerobot_format
     else:
         raise ValueError(
             f"The selected {raw_format} can't be found. Did you add it to `lerobot/scripts/push_dataset_to_hub.py::get_from_raw_to_lerobot_format_fn`?"
@@ -178,6 +181,7 @@ def push_dataset_to_hub(
         shutil.rmtree(tests_out_dir)
 
     if not raw_dir.exists():
+        print("Downloading raw data...")
         download_raw(raw_dir, dataset_id)
 
     if raw_format is None:
