@@ -61,9 +61,6 @@ class LeRobotDataset(torch.utils.data.Dataset):
         # https://huggingface.co/docs/huggingface_hub/en/guides/download#faster-downloads
         self.hf_dataset = load_hf_dataset(repo_id, version, root, split)
 
-        # temp fix 
-        self.hf_dataset = self.hf_dataset.map(lambda x: {"timestamp": x["timestamp"] / 100.0})
-
         if split == "train":
             self.episode_data_index = load_episode_data_index(repo_id, version, root)
         else:
