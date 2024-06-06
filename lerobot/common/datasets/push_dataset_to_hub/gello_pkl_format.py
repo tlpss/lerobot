@@ -19,9 +19,7 @@ import pickle
 import shutil
 from pathlib import Path
 
-import einops
 import torch
-import tqdm
 from datasets import Dataset, Features, Image, Sequence, Value
 from PIL import Image as PILImage
 
@@ -32,17 +30,13 @@ from lerobot.common.datasets.utils import (
 from lerobot.common.datasets.video_utils import VideoFrame, encode_video_frames
 
 
-
-
 def load_from_raw(raw_dir, out_dir, fps, video, debug):
-
     raw_dir = Path(raw_dir)
     out_dir = Path(out_dir)
 
     episode_paths = list(raw_dir.glob("*"))
     episode_paths = [x for x in episode_paths if x.is_dir()]
     episode_paths = sorted(episode_paths)
-
 
     dataset_idx = 0
     episode_dicts = []
@@ -52,21 +46,23 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
     for episode_idx, episode_path in enumerate(episode_paths):
         step_paths = list(episode_path.glob("*.pkl"))
         step_paths = sorted(step_paths)
-    
+
         episode_dict = {}
         for key in pickle.load(open(step_paths[0], "rb")).keys():
             episode_dict[key] = []
 
         for key in ["frame_index", "episode_index", "index", "timestamp", "next.done", "next.success"]:
             episode_dict[key] = []
-        
+
         episode_start_idx = dataset_idx
         for step_idx, step_path in enumerate(step_paths):
             step_dict = pickle.load(open(step_path, "rb"))
 
-            for key in pickle.load(open(step_path, "rb")).keys():
-                episode_dict[key].append(step_dict[key])
-            
+            with open(step_path, "rb") as f:
+                step_dict = pickle.load(f)
+                for key in step_dict:
+                    episode_dict[key].append(step_dict[key])
+
             episode_dict["frame_index"].append(step_idx)
             episode_dict["episode_index"].append(episode_idx)
             episode_dict["index"].append(step_idx)
@@ -77,15 +73,14 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
             episode_dict["next.success"] = episode_dict["next.done"]
 
             dataset_idx += 1
-        
-        episode_data_index["from"].append(episode_start_idx)
-        episode_data_index["to"].append(dataset_idx-1)
 
-        # rename the keys to match the expected format       
+        episode_data_index["from"].append(episode_start_idx)
+        episode_data_index["to"].append(dataset_idx - 1)
+
+        # rename the keys to match the expected format
 
         episode_dict["action"] = episode_dict["control"]
         episode_dict.pop("control")
-
 
         for key in list(episode_dict.keys()):
             if "rgb" in key or "depth" in key:
@@ -97,7 +92,7 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
                 episode_dict.pop(key)
 
         # convert to the desired formats
-        for key in episode_dict.keys():
+        for key in episode_dict:
             if "rgb" in key or "depth" in key:
                 # convert to uint8
                 episode_dict[key] = [x.astype("uint8") for x in episode_dict[key]]
@@ -117,18 +112,17 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
                     shutil.rmtree(tmp_imgs_dir)
 
                     # store the reference to the video frame
-                    episode_dict[key] = [{"path": f"videos/{fname}", "timestamp": i / fps} for i in range(len(episode_dict[key]))]
+                    episode_dict[key] = [
+                        {"path": f"videos/{fname}", "timestamp": i / fps}
+                        for i in range(len(episode_dict[key]))
+                    ]
 
                 else:
                     episode_dict[key] = [PILImage.fromarray(x) for x in episode_dict[key]]
 
-
             else:
                 episode_dict[key] = torch.tensor(episode_dict[key])
 
-
-
-        
         episode_dicts.append(episode_dict)
 
         # state = joint_positions + gripper_position
@@ -141,7 +135,6 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
         for key in list(episode_dict.keys()):
             if "depth" in key:
                 episode_dict.pop(key)
-        
 
         # for now drop tcp_pose_quat and wrench
         episode_dict["tcp_pose_rotvec"] = episode_dict["tcp_pose_quat"]
@@ -151,10 +144,9 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
 
         if debug:
             break
-        
+
     data_dict = concatenate_episodes(episode_dicts)
     return data_dict, episode_data_index
-
 
 
 def to_hf_dataset(data_dict, video):
@@ -178,7 +170,7 @@ def to_hf_dataset(data_dict, video):
     features["timestamp"] = Value(dtype="float32", id=None)
     features["next.done"] = Value(dtype="bool", id=None)
     features["index"] = Value(dtype="int64", id=None)
-    features["next.success"] = Value(dtype='bool', id=None)
+    features["next.success"] = Value(dtype="bool", id=None)
 
     features["tcp_pose_rotvec"] = Sequence(Value(dtype="float32", id=None), length=6)
 

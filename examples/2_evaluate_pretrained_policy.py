@@ -10,7 +10,6 @@ import gymnasium as gym
 import imageio
 import numpy
 import torch
-from huggingface_hub import snapshot_download
 
 from lerobot.common.policies.diffusion.modeling_diffusion import DiffusionPolicy
 
