@@ -81,29 +81,7 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
         episode_data_index["from"].append(episode_start_idx)
         episode_data_index["to"].append(dataset_idx-1)
 
-        # convert to the desired formats
-        for key in episode_dict.keys():
-            if "rgb" in key or "depth" in key:
-                if video:
-                    raise NotImplementedError
-                else:
-                    pass 
-                # convert to uint8
-                episode_dict[key] = [x.astype("uint8") for x in episode_dict[key]]
-                if "depth" in key:
-                    episode_dict[key] = [x[..., 0] for x in episode_dict[key]]
-
-                episode_dict[key] = [PILImage.fromarray(x) for x in episode_dict[key]]
-
-
-            else:
-                episode_dict[key] = torch.tensor(episode_dict[key])
-
-
-        # rename the keys to match the expected format        
-        episode_dict["observation.state"] = episode_dict["joint_positions"] + episode_dict["gripper_position"]
-        episode_dict.pop("joint_positions")
-        episode_dict.pop("gripper_position")
+        # rename the keys to match the expected format       
 
         episode_dict["action"] = episode_dict["control"]
         episode_dict.pop("control")
@@ -118,10 +96,45 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
                 # drop the original key
                 episode_dict.pop(key)
 
+        # convert to the desired formats
+        for key in episode_dict.keys():
+            if "rgb" in key or "depth" in key:
+                # convert to uint8
+                episode_dict[key] = [x.astype("uint8") for x in episode_dict[key]]
+                if "depth" in key:
+                    episode_dict[key] = [x[..., 0] for x in episode_dict[key]]
+
+                if video:
+                    # save png images in temporary directory
+                    tmp_imgs_dir = out_dir / "tmp_images"
+                    save_images_concurrently(episode_dict[key], tmp_imgs_dir)
+                    # encode images to a mp4 video
+                    fname = f"{key}_episode_{episode_idx:06d}.mp4"
+                    video_path = out_dir / "videos" / fname
+                    encode_video_frames(tmp_imgs_dir, video_path, fps)
+
+                    # clean temporary images directory
+                    shutil.rmtree(tmp_imgs_dir)
+
+                    # store the reference to the video frame
+                    episode_dict[key] = [{"path": f"videos/{fname}", "timestamp": i / fps} for i in range(len(episode_dict[key]))]
+
+                else:
+                    episode_dict[key] = [PILImage.fromarray(x) for x in episode_dict[key]]
+
+
+            else:
+                episode_dict[key] = torch.tensor(episode_dict[key])
+
+
 
         
         episode_dicts.append(episode_dict)
 
+        # state = joint_positions + gripper_position
+        episode_dict["observation.state"] = episode_dict["joint_positions"] + episode_dict["gripper_position"]
+        episode_dict.pop("joint_positions")
+        episode_dict.pop("gripper_position")
 
         # for now, drop all depth images
 
@@ -129,6 +142,13 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
             if "depth" in key:
                 episode_dict.pop(key)
         
+
+        # for now drop tcp_pose_quat and wrench
+        episode_dict["tcp_pose_rotvec"] = episode_dict["tcp_pose_quat"]
+        episode_dict.pop("tcp_pose_quat")
+
+        episode_dict.pop("wrench")
+
         if debug:
             break
         
@@ -160,8 +180,7 @@ def to_hf_dataset(data_dict, video):
     features["index"] = Value(dtype="int64", id=None)
     features["next.success"] = Value(dtype='bool', id=None)
 
-    features["tcp_pose_quat"] = Sequence(Value(dtype="float32", id=None), length=6)
-    features["wrench"] = Sequence(Value(dtype="float32", id=None), length=6)
+    features["tcp_pose_rotvec"] = Sequence(Value(dtype="float32", id=None), length=6)
 
     hf_dataset = Dataset.from_dict(data_dict, features=Features(features))
     hf_dataset.set_transform(hf_transform_to_torch)
@@ -169,8 +188,6 @@ def to_hf_dataset(data_dict, video):
 
 
 def from_raw_to_lerobot_format(raw_dir: Path, out_dir: Path, fps=None, video=True, debug=False):
-    # sanity check
-
     if fps is None:
         fps = 10
 
@@ -182,22 +199,3 @@ def from_raw_to_lerobot_format(raw_dir: Path, out_dir: Path, fps=None, video=Tru
         "video": video,
     }
     return hf_dataset, episode_data_index, info
-
-if __name__ == "__main__":
-    data_path =  Path(__file__).parents[1] / "planar_push_gello"
-    ouput_dir = Path(__file__).parents[1] / "planar_push_gello_lerobot"
-
-    dataset , episode_index, info = from_raw_to_lerobot_format(data_path, ouput_dir,fps=10,debug=True,video=False)
-
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
-    # visualize 
-    dataset = LeRobotDataset.from_preloaded(hf_dataset=dataset, episode_data_index=episode_index, info=info)
-
-
-    dataset.hf_dataset.with_format(None)
-    dataset.hf_dataset.save_to_disk(ouput_dir)
-    
-    from lerobot.scripts.visualize_dataset import visualize_dataset
-
-    visualize_dataset(ouput_dir, episode_index=0)
