@@ -48,16 +48,15 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
         step_paths = sorted(step_paths)
 
         episode_dict = {}
-        for key in pickle.load(open(step_paths[0], "rb")).keys():
-            episode_dict[key] = []
+        with open(step_paths[0], "rb") as f:
+            for key in pickle.load(f):
+                episode_dict[key] = []
 
         for key in ["frame_index", "episode_index", "index", "timestamp", "next.done", "next.success"]:
             episode_dict[key] = []
 
         episode_start_idx = dataset_idx
         for step_idx, step_path in enumerate(step_paths):
-            step_dict = pickle.load(open(step_path, "rb"))
-
             with open(step_path, "rb") as f:
                 step_dict = pickle.load(f)
                 for key in step_dict:
@@ -152,7 +151,7 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
 def to_hf_dataset(data_dict, video):
     features = {}
 
-    keys = [key for key in data_dict.keys() if "observation.images." in key]
+    keys = [key for key in data_dict if "observation.images." in key]
     for key in keys:
         if video:
             features[key] = VideoFrame()
