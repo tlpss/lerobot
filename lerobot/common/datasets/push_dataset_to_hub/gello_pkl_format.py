@@ -22,7 +22,7 @@ from pathlib import Path
 import torch
 from datasets import Dataset, Features, Image, Sequence, Value
 from PIL import Image as PILImage
-
+import tqdm
 from lerobot.common.datasets.push_dataset_to_hub.utils import concatenate_episodes, save_images_concurrently
 from lerobot.common.datasets.utils import (
     hf_transform_to_torch,
@@ -43,7 +43,7 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
     episode_data_index = {}
     episode_data_index["from"] = []
     episode_data_index["to"] = []
-    for episode_idx, episode_path in enumerate(episode_paths):
+    for episode_idx, episode_path in tqdm.tqdm(enumerate(episode_paths)):
         step_paths = list(episode_path.glob("*.pkl"))
         step_paths = sorted(step_paths)
 
@@ -74,7 +74,7 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
             dataset_idx += 1
 
         episode_data_index["from"].append(episode_start_idx)
-        episode_data_index["to"].append(dataset_idx - 1)
+        episode_data_index["to"].append(dataset_idx)
 
         # rename the keys to match the expected format
 
@@ -123,23 +123,24 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
                 episode_dict[key] = torch.tensor(episode_dict[key])
 
         episode_dicts.append(episode_dict)
-
         # state = joint_positions + gripper_position
-        episode_dict["observation.state"] = episode_dict["joint_positions"] + episode_dict["gripper_position"]
+        episode_dict["observation.state"] = torch.cat(
+            [episode_dict["joint_positions"],
+             # episode_dict["fingertips"],
+             # episode_dict["accelerometer"].unsqueeze(1),
+              ]
+,
+                dim=1
+        )
+
         episode_dict.pop("joint_positions")
         episode_dict.pop("gripper_position")
 
         # for now, drop all depth images
+        # for key in list(episode_dict.keys()):
+        #     if "depth" in key:
+        #         episode_dict.pop(key)
 
-        for key in list(episode_dict.keys()):
-            if "depth" in key:
-                episode_dict.pop(key)
-
-        # for now drop tcp_pose_quat and wrench
-        episode_dict["tcp_pose_rotvec"] = episode_dict["tcp_pose_quat"]
-        episode_dict.pop("tcp_pose_quat")
-
-        episode_dict.pop("wrench")
 
         if debug:
             break
@@ -172,6 +173,9 @@ def to_hf_dataset(data_dict, video):
     features["next.success"] = Value(dtype="bool", id=None)
 
     features["tcp_pose_rotvec"] = Sequence(Value(dtype="float32", id=None), length=6)
+    features["wrench"] = Sequence(Value(dtype="float32", id=None), length=6)
+    features["fingertips"] = Sequence(Value(dtype="float32", id=None), length=32)
+    features["accelerometer"] = Value(dtype="float32", id=None)
 
     hf_dataset = Dataset.from_dict(data_dict, features=Features(features))
     hf_dataset.set_transform(hf_transform_to_torch)
