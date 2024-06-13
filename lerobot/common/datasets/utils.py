@@ -107,7 +107,9 @@ def load_hf_dataset(repo_id, version, root, split) -> datasets.Dataset:
 
 
 def load_episode_data_index(repo_id, version, root) -> dict[str, torch.Tensor]:
-    """episode_data_index contains the range of indices for each episode
+    """episode_data_index contains the range of indices for each episode. 
+    
+    Note that the end index is exclusive. (cf. the example below)
 
     Example:
     ```python
