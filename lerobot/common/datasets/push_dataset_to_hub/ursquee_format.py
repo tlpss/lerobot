@@ -78,16 +78,23 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
 
         # rename the keys to match the expected format
 
-        episode_dict["action"] = episode_dict["control"]
-        episode_dict.pop("control")
+        #episode_dict["action"] = episode_dict["control"]
+        #episode_dict.pop("control")
 
-
+        episode_dict["action"] = torch.tensor(episode_dict["action"]).unsqueeze(1)
         # create spectrogram_img
-        episode_dict["spectogram_rgb"] = episode_dict["mic_spectrogram"]
-        episode_dict.pop("mic_spectrogram")
+        #episode_dict["base-cropped_rgb"] = episode_dict["base_rgb_cropped"]
+        #episode_dict.pop("base_rgb_cropped")
 
-        episode_dict["base-cropped_rgb"] = episode_dict["base_rgb_cropped"]
-        episode_dict.pop("base_rgb_cropped")
+ 
+        # for now, drop all depth images
+        # for key in list(episode_dict.keys()):
+        #     if "depth" in key:
+        #         episode_dict.pop(key)
+
+
+        # remove unused data 
+        episode_dict.pop("scale")
 
         for key in list(episode_dict.keys()):
             if "rgb" in key or "depth" in key:
@@ -106,17 +113,6 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
                 episode_dict[key] = [x.astype("uint8") for x in episode_dict[key]]
                 if "depth" in key:
                     episode_dict[key] = [x[..., 0] for x in episode_dict[key]]
-
-                # resize to 256x256
-                from PIL import Image
-                import numpy as np
-
-                def resize(np_array):
-                    img = Image.fromarray(np_array)
-                    img = img.resize((256,256),Image.Resampling.BICUBIC)
-                    img = np.array(img)
-                    return img 
-                episode_dict[key] = [resize(x) for x in episode_dict[key]]
 
                 if video:
                     # save png images in temporary directory
@@ -145,27 +141,18 @@ def load_from_raw(raw_dir, out_dir, fps, video, debug):
         episode_dicts.append(episode_dict)
         # state = joint_positions + gripper_position
         episode_dict["observation.state"] = torch.cat(
-            [episode_dict["joint_positions"],
-             # episode_dict["fingertips"],
+            [episode_dict["gripper-width"].unsqueeze(1),
+             episode_dict["tactile"].reshape(-1,12)
              # episode_dict["accelerometer"].unsqueeze(1),
               ]
 ,
                 dim=1
         )
 
-        episode_dict.pop("joint_positions")
-        episode_dict.pop("gripper_position")
+        episode_dict.pop("gripper-width")
+        episode_dict.pop("tactile")
+        episode_dict.pop("tactile-raw")
 
-        # for now, drop all depth images
-        # for key in list(episode_dict.keys()):
-        #     if "depth" in key:
-        #         episode_dict.pop(key)
-
-
-        # remove unused data 
-        episode_dict.pop("mic_frame")
-        episode_dict.pop("switches")
-        episode_dict.pop("wrench")
 
         if debug:
             break
@@ -197,10 +184,11 @@ def to_hf_dataset(data_dict, video):
     features["index"] = Value(dtype="int64", id=None)
     features["next.success"] = Value(dtype="bool", id=None)
 
-    features["tcp_pose_rotvec"] = Sequence(Value(dtype="float32", id=None), length=6)
+    #features["tcp_pose_rotvec"] = Sequence(Value(dtype="float32", id=None), length=6)
     #features["wrench"] = Sequence(Value(dtype="float32", id=None), length=6)
     # features["fingertips"] = Sequence(Value(dtype="float32", id=None), length=32)
-    # features["accelerometer"] = Value(dtype="float32", id=None)
+    # features["gripper-width"] = Value(dtype="float32", id=None)
+    features["pressure"] = Value(dtype="float32", id=None)
 
 
     # check if all keys in data dict are in feature dict

@@ -424,6 +424,7 @@ def train(cfg: DictConfig, out_dir: str | None = None, job_name: str | None = No
 
 @hydra.main(version_base="1.2", config_name="default", config_path="../configs")
 def train_cli(cfg: dict):
+    print(OmegaConf.to_yaml(cfg))
     train(
         cfg,
         out_dir=hydra.core.hydra_config.HydraConfig.get().run.dir,
