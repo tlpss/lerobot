@@ -17,32 +17,36 @@ defaults:
   - override /env: ur5e-real
 
 seed: 1000
-dataset_repo_id: tlpss/micro-button-04
+dataset_repo_id: tlpss/pick-cb-04
 
 
 override_dataset_stats:
-  # observation.images.left-wrist.rgb:
-  #   # stats from imagenet, since we use a pretrained vision model
-  #   mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
-  #   std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
-  observation.images.base.rgb:
+  observation.images.wrist-left.rgb:
+    # stats from imagenet, since we use a pretrained vision model
+    mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
+    std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
+  observation.images.scene-front.rgb:
+    # stats from imagenet, since we use a pretrained vision model
+    mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
+    std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
+  observation.images.scene-right.rgb:
     # stats from imagenet, since we use a pretrained vision model
     mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
     std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
 
 
 training:
-  offline_steps: 80000
+  offline_steps: 150000
   online_steps: 0
   eval_freq: -1
-  save_freq: 5000
+  save_freq: 10000
   log_freq: 1000
   save_checkpoint: true
 
-  batch_size: 16
-  lr: 2e-5
-  lr_backbone: 5e-5
-  weight_decay: 1e-4
+  batch_size: 8
+  lr: 1e-5
+  lr_backbone: 1e-5
+  weight_decay: 1e-6
   grad_clip_norm: 10
   online_steps_between_rollouts: 1
 
@@ -64,18 +68,18 @@ policy:
 
   input_shapes:
     # TODO(rcadene, alexander-soare): add variables for height and width from the dataset/env?
-    # observation.images.left-wrist.rgb: [3, 256, 256]
-    observation.images.base.rgb: [3, 256, 256]
-    #observation.images.spectogram.rgb: [3,256,256]
+    observation.images.wrist-left.rgb: [3, 128, 256]
+    observation.images.scene-right.rgb: [3, 128, 256]
+    observation.images.scene-front.rgb: [3, 128, 256]
     observation.state: ["${env.state_dim}"]
   output_shapes:
     action: ["${env.action_dim}"]
 
   # Normalization / Unnormalization
   input_normalization_modes:
-    #observation.images.left-wrist.rgb: mean_std
-    observation.images.base.rgb: mean_std
-    #observation.images.spectogram.rgb: min_max
+    observation.images.wrist-left.rgb: mean_std
+    observation.images.scene-right.rgb: mean_std
+    observation.images.scene-front.rgb: mean_std
     observation.state: mean_std
   output_normalization_modes:
     action: mean_std
@@ -95,7 +99,7 @@ policy:
   # Note: Although the original ACT implementation has 7 for `n_decoder_layers`, there is a bug in the code
   # that means only the first layer is used. Here we match the original implementation by setting this to 1.
   # See this issue https://github.com/tonyzhaozh/act/issues/25#issue-2258740521.
-  n_decoder_layers: 1
+  n_decoder_layers: 2
   # VAE.
   use_vae: true
   latent_dim: 32
@@ -116,4 +120,4 @@ wandb:
 # project name
 hydra:
   job:
-    name: ur5e-act-micro-vision-only
+    name: ur5e-act-pick-cb
