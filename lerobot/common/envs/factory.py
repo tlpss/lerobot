@@ -52,15 +52,10 @@ def make_env(cfg: EnvConfig, n_envs: int = 1, use_async_envs: bool = False) -> g
     if n_envs < 1:
         raise ValueError("`n_envs must be at least 1")
 
-    package_name = f"gym_{cfg.type}"
+    package_name = f"{cfg.type}"
 
-    try:
-        importlib.import_module(package_name)
-    except ModuleNotFoundError as e:
-        print(f"{package_name} is not installed. Please install it with `pip install 'lerobot[{cfg.type}]'`")
-        raise e
 
-    gym_handle = f"{package_name}/{cfg.task}"
+    gym_handle = package_name
 
     # batched version of the env that returns an observation of shape (b, c)
     env_cls = gym.vector.AsyncVectorEnv if use_async_envs else gym.vector.SyncVectorEnv
