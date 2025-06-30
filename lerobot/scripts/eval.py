@@ -171,10 +171,11 @@ def rollout(
         if render_callback is not None:
             render_callback(env)
 
-        # VectorEnv stores is_success in `info["final_info"][env_index]["is_success"]`. "final_info" isn't
-        # available of none of the envs finished.
+        # VectorEnv stores is_success array in `info["final_info"]["is_success"]`. "final_info" isn't
+        # available of none of the envs finished. 
+        # Note that this requires the 'SAME_STEP' autoreset mode, cf https://farama.org/Vector-Autoreset-Mode
         if "final_info" in info:
-            successes = [info["is_success"] if info is not None else False for info in info["final_info"]]
+            successes = info["final_info"]["is_success"]
         else:
             successes = [False] * env.num_envs
 

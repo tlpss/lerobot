@@ -55,12 +55,16 @@ def make_env(cfg: EnvConfig, n_envs: int = 1, use_async_envs: bool = False) -> g
     package_name = f"{cfg.type}"
 
 
-    gym_handle = package_name
+    gym_handle = f"{package_name}/{cfg.task}"
 
     # batched version of the env that returns an observation of shape (b, c)
     env_cls = gym.vector.AsyncVectorEnv if use_async_envs else gym.vector.SyncVectorEnv
     env = env_cls(
-        [lambda: gym.make(gym_handle, disable_env_checker=True, **cfg.gym_kwargs) for _ in range(n_envs)]
-    )
+        [lambda: gym.make(gym_handle, disable_env_checker=True, **cfg.gym_kwargs) for _ in range(n_envs)],
+        # v1.0 introduces different reset modes,
+        # SAME STEP correpsonds to old behavior (v0.29.1) (especially the final_info dict key)
+        # https://farama.org/Vector-Autoreset-Mode
+        # note that other modes might be more appropriate for eval scenario, but wanted to have minimal changes
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP  ) 
 
     return env
